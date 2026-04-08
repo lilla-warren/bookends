@@ -1,0 +1,605 @@
+!pip install pandas numpy scikit-learn PyPDF2 matplotlib seaborn
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+import PyPDF2
+
+books = pd.read_excel("DetailedBooksExcel Cleaned (RemovedBlank).xlsx")
+books.head()
+
+books = books.dropna(subset=['Book Title', 'Author', 'Genre'])
+
+books['combined_features'] = (
+    books['Book Title'].astype(str) + " " +
+    books['Author'].astype(str) + " " +
+    books['Genre'].astype(str)
+)
+
+tfidf = TfidfVectorizer(stop_words='english')
+tfidf_matrix = tfidf.fit_transform(books['combined_features'])
+
+cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
+
+def recommend_books(title):
+    indices = pd.Series(books.index, index=books['Book Title']).drop_duplicates()
+
+    if title not in indices:
+        return ["Book not found"]
+
+    idx = indices[title]
+    sim_scores = list(enumerate(cosine_sim[idx]))
+
+    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+    sim_scores = sim_scores[1:6]
+
+    book_indices = [i[0] for i in sim_scores]
+
+    return books['Book Title'].iloc[book_indices].tolist()
+
+recommend_books("Atomic Habits")
+
+books['Genre'] = books['Genre'].astype(str).str.lower()
+
+def recommend_by_genre(genre, num_recommendations=6):
+    genre = genre.lower()
+
+    filtered_books = books[books['Genre'].str.contains(genre, na=False)]
+
+    if filtered_books.empty:
+        return ["No books found for this genre"]
+
+    # Random sample (or top ones if you prefer)
+    recommendations = filtered_books.sample(
+        min(num_recommendations, len(filtered_books))
+    )
+
+    return recommendations['Book Title'].tolist()
+
+recommend_by_genre("kids")
+recommend_by_genre("romance")
+recommend_by_genre("history")
+
+products1 = pd.read_csv("Total sales by product - 2026-01-31 - 2026-03-02 (Cleaned).csv")
+products2 = pd.read_csv("Total sales by product Clean.csv")
+
+import os
+print(os.listdir())
+
+# Load product files
+products1 = pd.read_csv("Total sales by product - 2026-01-31 - 2026-03-02 (Cleaned).csv")
+products2 = pd.read_csv("Total sales by product Clean.csv")
+
+# Combine
+products = pd.concat([products1, products2])
+
+products.columns = products.columns.str.strip().str.lower()
+books.columns = books.columns.str.strip().str.lower()
+
+print(books.columns)
+print(products.columns)
+
+products = products.rename(columns={'product title': 'book title'})
+
+books = books.merge(products, on='book title', how='left')
+
+books['total sales'] = books['total sales'].fillna(0)
+
+"""NEW"""
+
+import pandas as pd
+import numpy as np
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+books = pd.read_excel("DetailedBooksExcel Cleaned (RemovedBlank).xlsx")
+
+books = books.dropna(subset=['Book Title', 'Author', 'Genre'])
+
+books['Book Title'] = books['Book Title'].astype(str)
+books['Author'] = books['Author'].astype(str)
+books['Genre'] = books['Genre'].astype(str).str.lower()
+
+books['combined_features'] = (
+    books['Book Title'] + " " +
+    books['Author'] + " " +
+    books['Genre']
+)
+
+tfidf = TfidfVectorizer(stop_words='english')
+tfidf_matrix = tfidf.fit_transform(books['combined_features'])
+
+cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
+
+def recommend_by_title(title, top_n=5):
+    indices = pd.Series(books.index, index=books['Book Title']).drop_duplicates()
+
+    if title not in indices:
+        return ["Book not found"]
+
+    idx = indices[title]
+
+    sim_scores = list(enumerate(cosine_sim[idx]))
+    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)[1:top_n+1]
+
+    book_indices = [i[0] for i in sim_scores]
+
+    return books['Book Title'].iloc[book_indices].tolist()
+
+def recommend_by_genre(genre, top_n=5):
+    genre = genre.lower()
+
+    filtered = books[books['Genre'].str.contains(genre, na=False)]
+
+    if filtered.empty:
+        return ["No books found for this genre"]
+
+    return filtered.sample(min(top_n, len(filtered)))['Book Title'].tolist()
+
+def recommend_vibe(text, top_n=5):
+    text = text.lower()
+
+    filtered = books[
+        books['combined_features'].str.lower().str.contains(text)
+    ]
+
+    if filtered.empty:
+        return recommend_by_genre(text, top_n)
+
+    return filtered.sample(min(top_n, len(filtered)))['Book Title'].tolist()
+
+def chatbot_response(user_input):
+    user_input = user_input.lower()
+
+    # Genre detection
+    if "kids" in user_input:
+        return recommend_by_genre("kids")
+
+    elif "romance" in user_input:
+        return recommend_by_genre("romance")
+
+    elif "history" in user_input:
+        return recommend_by_genre("history")
+
+    # Title-based request
+    elif "like" in user_input:
+        title = user_input.replace("like", "").strip()
+        return recommend_by_title(title)
+
+    # fallback AI vibe
+    else:
+        return recommend_vibe(user_input)
+
+pip install streamlit
+
+import streamlit as st
+import pandas as pd
+
+# ---------------- DATA LOAD ----------------
+books = pd.read_excel("DetailedBooksExcel Cleaned (RemovedBlank).xlsx")
+
+books = books.dropna(subset=['Book Title', 'Author', 'Genre'])
+books['Book Title'] = books['Book Title'].astype(str)
+books['Author'] = books['Author'].astype(str)
+books['Genre'] = books['Genre'].astype(str).str.lower()
+
+# ---------------- FUNCTIONS ----------------
+def recommend_by_genre(genre):
+    genre = genre.lower()
+    filtered = books[books['Genre'].str.contains(genre, na=False)]
+    if filtered.empty:
+        return ["No books found"]
+    return filtered.sample(min(5, len(filtered)))['Book Title'].tolist()
+
+def recommend_by_title(title):
+    try:
+        idx = books[books['Book Title'] == title].index[0]
+        return books.sample(5)['Book Title'].tolist()
+    except:
+        return ["Book not found"]
+
+def chatbot(user_input):
+    user_input = user_input.lower()
+
+    if "kids" in user_input:
+        return recommend_by_genre("kids")
+
+    elif "romance" in user_input:
+        return recommend_by_genre("romance")
+
+    elif "history" in user_input:
+        return recommend_by_genre("history")
+
+    else:
+        return recommend_by_genre(user_input)
+
+# ---------------- UI ----------------
+st.title("📚 AI Book Recommendation System")
+
+menu = st.sidebar.selectbox("Choose Option", ["Recommend by Genre", "Chatbot", "Search Book"])
+
+# ---------------- GENRE ----------------
+if menu == "Recommend by Genre":
+    genre = st.text_input("Enter genre (e.g. kids, romance, history)")
+
+    if st.button("Recommend"):
+        results = recommend_by_genre(genre)
+        st.write("### Recommendations:")
+        for r in results:
+            st.write("📖", r)
+
+# ---------------- CHATBOT ----------------
+elif menu == "Chatbot":
+    user_input = st.text_input("Ask me anything about books")
+
+    if st.button("Ask"):
+        response = chatbot(user_input)
+
+        st.write("### AI Recommendations:")
+        for r in response:
+            st.write("📖", r)
+
+# ---------------- TITLE SEARCH ----------------
+elif menu == "Search Book":
+    title = st.text_input("Enter book title")
+
+    if st.button("Find Similar Books"):
+        results = recommend_by_title(title)
+        st.write("### Similar Books:")
+        for r in results:
+            st.write("📖", r)
+
+streamlit run app.py
+
+import matplotlib.pyplot as plt
+
+st.title("📊 Dashboard Insights")
+
+# Top Genres
+st.subheader("Most Popular Genres")
+fig1, ax1 = plt.subplots()
+books['Genre'].value_counts().head(10).plot(kind='bar', ax=ax1)
+st.pyplot(fig1)
+
+# Book count
+st.subheader("Total Books by Genre")
+st.bar_chart(books['Genre'].value_counts())
+
+faq_data = [
+    {"q": "Where is your location",
+     "a": "Dubai Digital Park, Silicon Oasis Building A3, Lower Ground. Open daily 10am–10pm."},
+
+    {"q": "metro bus station near store",
+     "a": "Take metro to Centrepoint or Al Rashidiya → Bus 320 to Academic City → Silicon Park stop → Walk 5 minutes to Building A3."},
+
+    {"q": "can i sell books",
+     "a": "Yes, you can sell your books with us. We upload them to our website and you receive credit or cash once sold."},
+
+    {"q": "free delivery",
+     "a": "Yes, free delivery applies automatically for orders above AED 180."},
+
+    {"q": "where is my order",
+     "a": "Please provide your order number or name so we can check the status."},
+
+    {"q": "storage fee",
+     "a": "Storage fee is a one-time charge deducted from your sales."},
+
+    {"q": "redemption fee",
+     "a": "10% fee applies only if you convert credit to cash. It is waived if used in-store or online."},
+
+    {"q": "how to use credit",
+     "a": "Use your credit online or in-store and we will deduct it manually."},
+
+    {"q": "pick up books",
+     "a": "Pickup is available with AED 25 charge up to 5kg, AED 2 per extra kg."},
+
+    {"q": "delivery cost",
+     "a": "AED 19 in Dubai/Sharjah/Ajman and AED 24 in other emirates."},
+
+    {"q": "how long books take to sell",
+     "a": "There is no fixed time. It depends on book popularity and condition."},
+
+    {"q": "can i cancel order",
+     "a": "Yes, please tell us the reason for cancellation."},
+
+    {"q": "discount code",
+     "a": "We currently offer free delivery for orders above AED 180."}
+]
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+questions = [item["q"] for item in faq_data]
+answers = [item["a"] for item in faq_data]
+
+vectorizer = TfidfVectorizer()
+faq_matrix = vectorizer.fit_transform(questions)
+
+def faq_chatbot(user_input):
+    user_vec = vectorizer.transform([user_input])
+
+    similarity = cosine_similarity(user_vec, faq_matrix)
+    index = similarity.argmax()
+
+    # confidence check
+    if similarity[0][index] < 0.2:
+        return "Sorry, I couldn't find an exact answer. Please contact support."
+
+    return answers[index]
+
+import streamlit as st
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# ---------------- FAQ DATA ----------------
+faq_data = [
+    {"q": "Where is your location",
+     "a": "Dubai Digital Park, Silicon Oasis Building A3, Lower Ground. Open daily 10am–10pm."},
+
+    {"q": "metro bus station near store",
+     "a": "Take metro to Centrepoint or Al Rashidiya → Bus 320 → Silicon Park stop → Walk 5 min."},
+
+    {"q": "can i sell books",
+     "a": "Yes, you can sell books with us and earn credit or cash."},
+
+    {"q": "free delivery",
+     "a": "Free delivery for orders above AED 180."},
+
+    {"q": "where is my order",
+     "a": "Please provide your order number or name."},
+
+    {"q": "storage fee",
+     "a": "One-time fee deducted from sales."},
+
+    {"q": "redemption fee",
+     "a": "10% fee applies if converting credit to cash."},
+
+    {"q": "how to use credit",
+     "a": "Use credit online or in-store, we deduct it manually."},
+
+    {"q": "pick up books",
+     "a": "Pickup AED 25 up to 5kg, AED 2 per extra kg."},
+
+    {"q": "delivery cost",
+     "a": "AED 19 Dubai/Sharjah/Ajman, AED 24 other emirates."}
+]
+
+questions = [item["q"] for item in faq_data]
+answers = [item["a"] for item in faq_data]
+
+vectorizer = TfidfVectorizer()
+matrix = vectorizer.fit_transform(questions)
+
+# ---------------- CHAT FUNCTION ----------------
+def get_answer(user_input):
+    vec = vectorizer.transform([user_input])
+    sim = cosine_similarity(vec, matrix)
+
+    index = sim.argmax()
+
+    if sim[0][index] < 0.2:
+        return "Sorry, I couldn't find an answer. Please contact support."
+
+    return answers[index]
+
+# ---------------- STREAMLIT UI ----------------
+st.title("💬 Bookends FAQ Chatbot")
+
+st.write("Ask anything about orders, books, delivery, or selling books")
+
+user_input = st.text_input("Type your question here:")
+
+if st.button("Ask"):
+    response = get_answer(user_input)
+
+    st.markdown("### 🤖 Answer:")
+    st.success(response)
+
+streamlit run faq_chatbot.py
+
+pip install streamlit pandas numpy scikit-learn matplotlib
+
+import streamlit as st
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+books = pd.read_excel("DetailedBooksExcel Cleaned (RemovedBlank).xlsx")
+
+books = books.dropna(subset=['Book Title', 'Author', 'Genre'])
+
+books['Book Title'] = books['Book Title'].astype(str)
+books['Author'] = books['Author'].astype(str)
+books['Genre'] = books['Genre'].astype(str).str.lower()
+
+books['combined'] = books['Book Title'] + " " + books['Author'] + " " + books['Genre']
+
+def recommend_by_title(title):
+    if title not in books['Book Title'].values:
+        return ["Book not found"]
+
+    idx = books[books['Book Title'] == title].index[0]
+    scores = list(enumerate(cosine_sim[idx]))
+    scores = sorted(scores, key=lambda x: x[1], reverse=True)[1:6]
+
+    return books['Book Title'].iloc[[i[0] for i in scores]].tolist()
+
+
+def recommend_by_genre(genre):
+    genre = genre.lower()
+    filtered = books[books['Genre'].str.contains(genre, na=False)]
+
+    if filtered.empty:
+        return ["No books found"]
+
+    return filtered.sample(min(5, len(filtered)))['Book Title'].tolist()
+
+
+def vibe_recommend(text):
+    text = text.lower()
+    filtered = books[books['combined'].str.lower().str.contains(text)]
+
+    if filtered.empty:
+        return recommend_by_genre(text)
+
+    return filtered.sample(min(5, len(filtered)))['Book Title'].tolist()
+
+faq_data = [
+    ("location", "Dubai Digital Park, Silicon Oasis Building A3. Open 10am–10pm."),
+    ("sell books", "Yes, you can sell books. We upload them and you get credit or cash."),
+    ("free delivery", "Free delivery for orders above AED 180."),
+    ("order", "Please provide your order number or name."),
+    ("storage fee", "One-time fee deducted from sales."),
+    ("redemption fee", "10% fee applies only when converting credit to cash."),
+    ("delivery cost", "AED 19 Dubai/Sharjah/Ajman, AED 24 other emirates."),
+    ("pick up", "Pickup is AED 25 up to 5kg, AED 2 per extra kg."),
+    ("cancel", "Yes, please tell us the reason for cancellation.")
+]
+
+faq_q = [q[0] for q in faq_data]
+faq_a = [q[1] for q in faq_data]
+
+faq_vectorizer = TfidfVectorizer()
+faq_matrix = faq_vectorizer.fit_transform(faq_q)
+
+
+def faq_bot(question):
+    vec = faq_vectorizer.transform([question.lower()])
+    sim = cosine_similarity(vec, faq_matrix)
+
+    idx = sim.argmax()
+
+    if sim[0][idx] < 0.2:
+        return "Sorry, I couldn't find an answer. Please contact support."
+
+    return faq_a[idx]
+
+def show_dashboard():
+    st.title("📊 Insights Dashboard")
+
+    st.subheader("Top Genres")
+    fig, ax = plt.subplots()
+    books['Genre'].value_counts().head(10).plot(kind='bar', ax=ax)
+    st.pyplot(fig)
+
+    st.subheader("Books Count by Genre")
+    st.bar_chart(books['Genre'].value_counts())
+
+st.title("📚 AI Book + FAQ System")
+
+menu = st.sidebar.selectbox(
+    "Choose Feature",
+    ["Book Recommender", "FAQ Chatbot", "Dashboard"]
+)
+
+if menu == "Book Recommender":
+    option = st.selectbox("Choose type", ["Genre", "Book Title", "Vibe Search"])
+
+    if option == "Genre":
+        genre = st.text_input("Enter genre (kids, romance, history)")
+        if st.button("Recommend"):
+            st.write(recommend_by_genre(genre))
+
+    elif option == "Book Title":
+        title = st.text_input("Enter book title")
+        if st.button("Find Similar"):
+            st.write(recommend_by_title(title))
+
+    else:
+        text = st.text_input("Describe vibe (kids, happy, adventure)")
+        if st.button("Search"):
+            st.write(vibe_recommend(text))
+
+elif menu == "FAQ Chatbot":
+    st.subheader("💬 Ask Bookends FAQ Bot")
+
+    question = st.text_input("Ask a question")
+
+    if st.button("Ask"):
+        answer = faq_bot(question)
+        st.success(answer)
+
+menu = st.sidebar.selectbox(
+    "Choose Feature",
+    ["Book Recommender", "FAQ Chatbot", "Dashboard"]
+)
+
+if menu == "Book Recommender":
+    st.subheader("📚 Book Recommender")
+
+    option = st.selectbox("Choose type", ["Genre", "Book Title", "Vibe Search"])
+
+    if option == "Genre":
+        genre = st.text_input("Enter genre")
+        if st.button("Recommend"):
+            st.write(recommend_by_genre(genre))
+
+    elif option == "Book Title":
+        title = st.text_input("Enter book title")
+        if st.button("Find Similar"):
+            st.write(recommend_by_title(title))
+
+    else:
+        text = st.text_input("Describe vibe")
+        if st.button("Search"):
+            st.write(vibe_recommend(text))
+
+
+elif menu == "FAQ Chatbot":
+    st.subheader("💬 FAQ Chatbot")
+
+    question = st.text_input("Ask a question")
+
+    if st.button("Ask"):
+        st.write(faq_bot(question))
+
+
+elif menu == "Dashboard":
+    show_dashboard()
+
+!streamlit run app.py
+
+!pip install streamlit
+!streamlit run app.py & npx localtunnel --port 8501
+
+# Commented out IPython magic to ensure Python compatibility.
+# %%writefile app.py
+# import streamlit as st
+# import pandas as pd
+# 
+# st.title("Book Recommender + FAQ Chatbot")
+# 
+# st.write("App is running!")
+#
+
+# Commented out IPython magic to ensure Python compatibility.
+# %%writefile requirements.txt
+# streamlit
+# pandas
+#
+
+!streamlit run app.py & npx localtunnel --port 8501
+
+# Commented out IPython magic to ensure Python compatibility.
+# %%writefile streamlit_app.py
+# import streamlit as st
+# 
+# st.title("📚 Book Recommender + FAQ Chatbot")
+# 
+# st.write("Your app is working 🎉")
+#
+
+# Commented out IPython magic to ensure Python compatibility.
+# %%writefile requirements.txt
+# streamlit
+# pandas
+# numpy
+#
