@@ -1,0 +1,52 @@
+import pandas as pd
+import streamlit as st
+
+@st.cache_data
+def load_books_data():
+    """Load and cache books data"""
+    try:
+        # Try to load from different possible locations
+        try:
+            books = pd.read_excel("data/DetailedBooksExcel Cleaned (RemovedBlank).xlsx")
+        except:
+            books = pd.read_excel("DetailedBooksExcel Cleaned (RemovedBlank).xlsx")
+        
+        books = books.dropna(subset=['Book Title', 'Author', 'Genre'])
+        books['Book Title'] = books['Book Title'].astype(str)
+        books['Author'] = books['Author'].astype(str)
+        books['Genre'] = books['Genre'].astype(str).str.lower()
+        
+        books['combined'] = books['Book Title'] + " " + books['Author'] + " " + books['Genre']
+        
+        return books
+    except Exception as e:
+        st.error(f"Error loading books data: {e}")
+        # Return sample data if real data not available
+        return create_sample_data()
+
+@st.cache_data
+def load_products_data():
+    """Load and cache products data"""
+    try:
+        products1 = pd.read_csv("data/Total sales by product - 2026-01-31 - 2026-03-02 (Cleaned).csv")
+        products2 = pd.read_csv("data/Total sales by product Clean.csv")
+        products = pd.concat([products1, products2])
+        products.columns = products.columns.str.strip().str.lower()
+        products = products.rename(columns={'product title': 'book title'})
+        return products
+    except:
+        return pd.DataFrame()
+
+def create_sample_data():
+    """Create sample data for testing"""
+    sample_data = {
+        'Book Title': ['Atomic Habits', 'The Psychology of Money', 'Deep Work', 
+                       'The 7 Habits of Highly Effective People', 'Think and Grow Rich'],
+        'Author': ['James Clear', 'Morgan Housel', 'Cal Newport', 
+                   'Stephen R. Covey', 'Napoleon Hill'],
+        'Genre': ['self-help', 'finance', 'productivity', 
+                  'self-help', 'self-help']
+    }
+    books = pd.DataFrame(sample_data)
+    books['combined'] = books['Book Title'] + " " + books['Author'] + " " + books['Genre']
+    return books
