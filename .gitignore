@@ -12,7 +12,7 @@ ENV/
 # Streamlit
 .streamlit/secrets.toml
 
-# Data files (if they're large)
+# Data files (add your data files here if you don't want to commit them)
 *.xlsx
 *.csv
 !sample_data/
